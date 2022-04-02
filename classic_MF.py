@@ -50,8 +50,8 @@ class MF():
             self.sgd()
             mse = self.mse()
             training_process.append((i, mse))
-            # if (i + 1) % 10 == 0:
-            #     print("Iteration: %d ; error = %.4f" % (i + 1, mse))
+            if (i + 1) % 10 == 0:
+                print("Iteration: %d ; error = %.4f" % (i + 1, mse))
 
         return training_process
 
