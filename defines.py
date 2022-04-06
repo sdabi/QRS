@@ -12,6 +12,6 @@ global _NUM_OF_USERS
 _NUM_OF_USERS = 64
 
 global _NUM_OF_ITEMS
-_NUM_OF_ITEMS = 64
+_NUM_OF_ITEMS = 128
 
 

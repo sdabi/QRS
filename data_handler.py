@@ -15,7 +15,7 @@ class Data_Handler():
             self.movie_ids_list = np.sort(self.rating_df["movieId"].unique().tolist())
 
         else:
-            rig = random_interactions_data_generator(int((defines._NUM_OF_USERS*defines._NUM_OF_ITEMS)/4))
+            rig = random_interactions_data_generator(int((defines._NUM_OF_USERS*defines._NUM_OF_ITEMS)/10))
             self.rating_df = rig.get_rating_df()
             self.user_ids_list = list(range(defines._NUM_OF_USERS))
             self.movie_ids_list = list(range(defines._NUM_OF_ITEMS))
@@ -95,7 +95,6 @@ class Data_Handler():
 
         R_df["user"] = R_df["userId"].map(self.user2user_encoded)
         R_df["movie"] = R_df["movieId"].map(self.movie2movie_encoded)
-        print(R_df)
         R_df = R_df.drop(['userId', 'movieId', 'timestamp'], axis=1)
         R_df = R_df.pivot(index='user', columns='movie', values='rating').fillna(0)
         R_df = R_df.astype(int)
@@ -114,36 +113,6 @@ class Data_Handler():
     # output: encoded user
     def convert_userId_to_user_encode(self, userID):
         return self.user2user_encoded[userID]
-
-
-
-    # def generate_random_interactions(self, num_of_uniq_users, num_of_users, num_of_items):
-    #     inter_list = []
-    #
-    #     # randomizing unique users
-    #     for user in range(num_of_uniq_users):
-    #         num_of_inters_for_user = random.randint(int(num_of_items/6), int(num_of_items/4))
-    #         inter_for_user = np.random.choice(np.arange(0, num_of_items), replace=False, size=num_of_inters_for_user)
-    #         for item in inter_for_user:
-    #             inter_list.append([user, item, 1, random.randint(1, 100)])
-    #
-    #     # copy not-unique users
-    #     un_inter_df = pd.DataFrame(inter_list, columns=['userId', 'movieId', 'rating', 'timestamp'])
-    #     for user in range(num_of_uniq_users,num_of_users):
-    #         # picking a unique user
-    #         uniq_user_sampled = random.randint(0, num_of_uniq_users-1)
-    #
-    #         # copy the uniq user interactions - and changing the userId
-    #         df_to_append = un_inter_df.loc[un_inter_df.userId == uniq_user_sampled, :].copy()
-    #         df_to_append.loc[:, 'userId'] = user
-    #
-    #         # rerandomizing the timestamp for the user
-    #         l = len(df_to_append.loc[:, 'timestamp'].values.tolist())
-    #         df_to_append.loc[:, 'timestamp'] = np.random.choice(np.arange(1, 100), replace=False, size=l)
-    #
-    #         # adding the new user interaction df to all users df
-    #         un_inter_df = pd.concat([un_inter_df, df_to_append])
-    #     return un_inter_df
 
 
 

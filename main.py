@@ -1,9 +1,5 @@
 import pandas as pd
 import numpy as np
-import pennylane as qml
-from pennylane.templates.layers import StronglyEntanglingLayers
-from pennylane.templates.embeddings import AngleEmbedding
-from pennylane.templates import SimplifiedTwoDesign
 
 from pathlib import Path
 import matplotlib.pyplot as plt
@@ -44,10 +40,17 @@ def get_LOO_index_in_scores_array(uninteracted_movies, LOO_item, reco_scores):
     return (np.where(reco_scores.argsort()[::-1][:len(reco_scores)]==desired_inter_index_pos)[0])[0]+1
 
 
-
-def run_MF(LOO, dh, SDG_MF, num_of_uninter_per_user = 0):
-    reco_hit_index = []
-    for user, movieId in (LOO):
+# input:    1. list of tuples
+#               A. userID - who we removed the interaction from
+#               B. moviedId - which was removed from the user
+#           2. if num_of_uninter_per_user == 0 - than taking all uninteracted movies
+# output:   1. list of triples:
+#               A. user index (encoded)
+#               B. the movie index which removed (encoded)
+#               C. list of uninteracted movies - contains the removed interaction movie (encoded)
+def create_recommendation_sets(LOO, dh, num_of_uninter_per_user = 0):
+    recommendation_sets = []
+    for user, movieId in LOO:
         # getting all uninteracted movies
         uninteracted_movies = dh.get_uninteracted_movieId_to_user(user)
 
@@ -62,51 +65,77 @@ def run_MF(LOO, dh, SDG_MF, num_of_uninter_per_user = 0):
         uninteracted_movies = list(set(uninteracted_movies))
 
         user_encoded = dh.convert_userId_to_user_encode(user)
-        print('searching for recommendation for user:', user_encoded, 'LOO is:', LOO_encoded_movie)
+        recommendation_sets.append((user_encoded, LOO_encoded_movie, uninteracted_movies))
+    return recommendation_sets
 
+
+def run_MF(recommendation_sets, SDG_MF):
+    reco_hit_index = []
+    for user, removed_movie, uninter_movies in recommendation_sets:
         # get MF recommendations
-        reco_scores = SDG_MF.get_recommendation(user_encoded, uninteracted_movies)
+        reco_scores = SDG_MF.get_recommendation(user, uninter_movies)
 
-        # print('got scores:', reco_scores)
-        reco_hit_index.append(get_LOO_index_in_scores_array(uninteracted_movies, LOO_encoded_movie, reco_scores))
+        reco_hit_index.append(get_LOO_index_in_scores_array(uninter_movies, removed_movie, reco_scores))
         print("reco_hit_index", reco_hit_index[-1])
 
     reco_hit_index = np.array(reco_hit_index)
     HRK = create_HRK(reco_hit_index)
-    plt.plot(HRK,label ="hits_per_K_RANDOM",color='green')
-    y_axis = np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
-    plt.ylim([0, 1])
-    plt.yticks(y_axis)
-    plt.xlim([1, len(HRK)])
-    plt.legend()
-    plt.grid()
-    plt.show()
-
     return HRK
 
 
 
-
-
-
 if __name__ == '__main__':
+    # ----------------------------- DATA PREPARATION ------------------------------------
+    dh = Data_Handler(random_data=1)
+    LOO = dh.remove_last_interaction_for_every_user()
+    dh.add_bad_sample_for_every_user()
+    R_df = dh.get_interaction_table()
+    recommendation_sets = create_recommendation_sets(LOO, dh)
+
+
+    # -------------------------------- TRAINING CLASSIC MF --------------------------------
+    SDG_MF = MF(R_df.to_numpy(), defines._EMBEDDING_SIZE, alpha=0.1, beta=0.01, norm_weight=0.001, iterations=100)
+    SDG_MF.train()
+    HRK_MF = run_MF(recommendation_sets, SDG_MF)
+
+
+    plt.plot(HRK_MF,label ="hits_per_K_RANDOM",color='green')
+    y_axis = np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
+    plt.ylim([0, 1])
+    plt.yticks(y_axis)
+    plt.xlim([1, len(HRK_MF)])
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+
+
+
+# ======================================= FULL ORIG DATA TESTING =======================================
+if __name__ == 'FULL_ORIG_DATA_TESTING':
+
+
+    # ----------------------------- DATA PREPARATION ------------------------------------
     dh = Data_Handler(random_data=0)
     LOO = dh.remove_last_interaction_for_every_user()
     dh.add_bad_sample_for_every_user()
     R_df = dh.get_interaction_table()
     print(R_df)
-
-
-    # ALS_MF = MF_ALS(R_df.to_numpy(), defines._EMBEDDING_SIZE,  0.1 ,iterations=100)
-    # ALS_MF.runALS()
-    # # print(ALS_MF.full_matrix())
-    # HRK = run_MF(LOO, dh, ALS_MF)
+    recommendation_sets = create_recommendation_sets(LOO, dh, 100)
 
     # -------------------------------- TRAINING CLASSIC MF --------------------------------
     SDG_MF = MF(R_df.to_numpy(), defines._EMBEDDING_SIZE, alpha=0.1, beta=0.01, norm_weight=0.001, iterations=50)
     SDG_MF.train()
+    HRK_MF = run_MF(recommendation_sets, SDG_MF)
 
-    # -------------------------------- RUNNING MF ALL DATA --------------------------------
-    HRK = run_MF(LOO, dh, SDG_MF, 100)
+
+    plt.plot(HRK_MF,label ="hits_per_K_RANDOM",color='green')
+    y_axis = np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
+    plt.ylim([0, 1])
+    plt.yticks(y_axis)
+    plt.xlim([1, len(HRK_MF)])
+    plt.legend()
+    plt.grid()
+    plt.show()
 
 
