@@ -20,14 +20,12 @@ class Data_Handler():
             self.user_ids_list = list(range(defines._NUM_OF_USERS))
             self.movie_ids_list = list(range(defines._NUM_OF_ITEMS))
 
+
         self.user2user_encoded = {x: i for i, x in enumerate(self.user_ids_list)}
         self.user_encoded2user = {i: x for i, x in enumerate(self.user_ids_list)}
 
         self.movie2movie_encoded = {x: i for i, x in enumerate(self.movie_ids_list)}
         self.movie_encoded2movie = {i: x for i, x in enumerate(self.movie_ids_list)}
-
-        print("num of users:", len(self.rating_df["userId"].unique().tolist()))
-        print("num of movies:", len(self.rating_df["movieId"].unique().tolist()))
 
     def get_uninteracted_movieId_to_user(self, user_id):
         all_movies = set(self.movie_ids_list)
@@ -37,7 +35,7 @@ class Data_Handler():
     # input: user id - to whom his latest interaction will be marked as _REMOVED_INTER
     # output: movieId_removed - the movieId that removed for this user
     def remove_last_interaction_for_user(self, user_id):
-        latest_inter_time = (max(self.rating_df[self.rating_df.userId == user_id]['timestamp'].values))
+        latest_inter_time = (max(self.rating_df[(self.rating_df.userId == user_id) & (self.rating_df.rating == 1)]['timestamp'].values))
         self.rating_df.loc[(self.rating_df.userId == user_id) & (
                 self.rating_df.timestamp == latest_inter_time), 'rating'] = defines._REMOVED_INTER
         movieId_removed = self.rating_df.loc[
@@ -71,7 +69,7 @@ class Data_Handler():
         uninteracted_movieId_sampled = np.random.choice(uninteracted_movieId, num_of_bad_samples, replace=False)
 
         # building list of lists, each contains a movie not interacted - and then crating df
-        un_inter_list = [[user_id, movieId, defines._BAD_SAMPLED_INTER, 0] for movieId in uninteracted_movieId_sampled]
+        un_inter_list = [[user_id, movieId, defines._BAD_SAMPLED_INTER, -1] for movieId in uninteracted_movieId_sampled]
         un_inter_df = pd.DataFrame(un_inter_list, columns=['userId', 'movieId', 'rating', 'timestamp'])
 
         # concating the bad sample df with the orig df
@@ -92,6 +90,10 @@ class Data_Handler():
             if len(R_df[R_df.movieId == item].values.tolist()) == 0:
                 inter_as_df = pd.DataFrame([[0, item, 0, -1]], columns=['userId', 'movieId', 'rating', 'timestamp'])
                 R_df = pd.concat([R_df, inter_as_df])
+
+        print("num of users:", len(R_df["userId"].unique().tolist()))
+        print("num of movies:", len(R_df["movieId"].unique().tolist()))
+
 
         R_df["user"] = R_df["userId"].map(self.user2user_encoded)
         R_df["movie"] = R_df["movieId"].map(self.movie2movie_encoded)
@@ -114,5 +116,12 @@ class Data_Handler():
     def convert_userId_to_user_encode(self, userID):
         return self.user2user_encoded[userID]
 
+
+    def duplicated_user_inter(self, orig_user, new_user):
+        self.rating_df = self.rating_df.drop(self.rating_df.index[self.rating_df['userId'] == new_user].tolist())
+        t = self.rating_df[self.rating_df['userId'] == orig_user].copy()
+        t.loc[:, "userId"] = new_user
+        self.rating_df = pd.concat([self.rating_df, t])
+        self.rating_df = self.rating_df.reset_index(drop=True)
 
 

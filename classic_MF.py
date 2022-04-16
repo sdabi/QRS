@@ -50,7 +50,7 @@ class MF():
             self.sgd()
             mse = self.mse()
             training_process.append((i, mse))
-            if (i + 1) % 10 == 0:
+            if (i + 1) % 250 == 0:
                 print("Iteration: %d ; error = %.4f" % (i + 1, mse))
 
         return training_process
@@ -120,7 +120,7 @@ class MF():
         return self.b + self.b_u[:, np.newaxis] + self.b_i[np.newaxis:, ] + self.P.dot(self.Q.T)
 
     def get_embedded_vectors(self):
-        return (self.P, self.Q)
+        return (self.P)
 
     def get_recommendation(self, user_index, movie_indexs):
         return np.array([self.get_rating(user_index, j) for j in movie_indexs])

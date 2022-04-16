@@ -1,23 +1,15 @@
-import pandas as pd
 import numpy as np
-
-from pathlib import Path
 import matplotlib.pyplot as plt
-import math
-
-import random
-import time
-from threading import Thread, Lock
-import queue
 
 import defines
 from classic_MF import MF
-from classic_als_MF import MF_ALS
 from data_handler import Data_Handler
-from random_interaction_generator import random_interactions_data_generator
+from embedded_QRS import embedded_QRS
+from random_RS import random_RS
+import visualiser
 
 
-# input: reco_hit_index arr - for every recommandation - where the LOO item was
+# input: reco_hit_index arr - for every recommendation - where the LOO item was
 # output: HR@K arr
 def create_HRK(hit_arr):
     hits_ind = np.zeros(11)
@@ -69,44 +61,54 @@ def create_recommendation_sets(LOO, dh, num_of_uninter_per_user = 0):
     return recommendation_sets
 
 
-def run_MF(recommendation_sets, SDG_MF):
+
+def TEST_MODEL(recommendation_sets, MODEL):
     reco_hit_index = []
     for user, removed_movie, uninter_movies in recommendation_sets:
-        # get MF recommendations
-        reco_scores = SDG_MF.get_recommendation(user, uninter_movies)
+        # get recommendations from the model - on uninter_movies list
+        reco_scores = MODEL.get_recommendation(user, uninter_movies)
 
+        # getting the index of the LOO item from the recommendations
         reco_hit_index.append(get_LOO_index_in_scores_array(uninter_movies, removed_movie, reco_scores))
-        print("reco_hit_index", reco_hit_index[-1])
 
     reco_hit_index = np.array(reco_hit_index)
     HRK = create_HRK(reco_hit_index)
+
     return HRK
+
 
 
 
 if __name__ == '__main__':
     # ----------------------------- DATA PREPARATION ------------------------------------
     dh = Data_Handler(random_data=1)
-    LOO = dh.remove_last_interaction_for_every_user()
     dh.add_bad_sample_for_every_user()
+    dh.duplicated_user_inter(0, 1)
+    LOO = dh.remove_last_interaction_for_every_user()
     R_df = dh.get_interaction_table()
     recommendation_sets = create_recommendation_sets(LOO, dh)
+    print(R_df.to_numpy())
+
+
+    # -------------------------------- RANDOM RECOMMENDATION --------------------------------
+    RAND_RECO = random_RS()
+    HRK_RAND_RECO = TEST_MODEL(recommendation_sets, RAND_RECO)
 
 
     # -------------------------------- TRAINING CLASSIC MF --------------------------------
-    SDG_MF = MF(R_df.to_numpy(), defines._EMBEDDING_SIZE, alpha=0.1, beta=0.01, norm_weight=0.001, iterations=100)
+    SDG_MF = MF(R_df.to_numpy(), defines._EMBEDDING_SIZE, alpha=0.1, beta=0.01, norm_weight=0.001, iterations=10000)
     SDG_MF.train()
-    HRK_MF = run_MF(recommendation_sets, SDG_MF)
+    HRK_MF = TEST_MODEL(recommendation_sets, SDG_MF)
 
 
-    plt.plot(HRK_MF,label ="hits_per_K_RANDOM",color='green')
-    y_axis = np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
-    plt.ylim([0, 1])
-    plt.yticks(y_axis)
-    plt.xlim([1, len(HRK_MF)])
-    plt.legend()
-    plt.grid()
-    plt.show()
+    # -------------------------------- TRAINING EMBEDDED QRS --------------------------------
+    user_embedded_vecs = SDG_MF.get_embedded_vectors()
+    visualiser.plot_embedded_vecs(user_embedded_vecs)
+    QRS = embedded_QRS(R_df.to_numpy(), user_embedded_vecs, train_steps=50)
+    QRS.train()
+    HRK_QRS = TEST_MODEL(recommendation_sets, QRS)
+
+    visualiser.plot_HRK([HRK_MF, HRK_QRS, HRK_RAND_RECO], ["MF", "QRS", "RAND_RECO"])
 
 
 
