@@ -1,6 +1,7 @@
 import pennylane as qml
 from pennylane.templates.layers import StronglyEntanglingLayers
 from pennylane.templates.embeddings import AngleEmbedding
+from pennylane.templates.layers import BasicEntanglerLayers
 from pennylane import numpy as np
 import time
 
@@ -8,11 +9,17 @@ import math
 import defines
 import visualiser
 
+n_item_wires = (int(math.log(defines._NUM_OF_ITEMS,2)))
+n_user_wires = (int(math.log(defines._NUM_OF_USERS,2)))
+n_wires = n_user_wires + n_item_wires
 
-n_wires = (int(math.log(defines._NUM_OF_ITEMS,2)))
-wires_list = list(range(n_wires))
+item_wires = list(range(n_item_wires))
+user_wires = list(range(n_item_wires, n_wires))
+wires_list = item_wires + user_wires
 
-
+# weights =  np.random.random((1, n_wires))
+weights_users = np.zeros((1, n_user_wires))
+weights_all = np.zeros((1, n_wires))
 
 # wrap device in qml.qnode
 dev_embedded_ItemItem = qml.device('default.qubit', wires=n_wires)
@@ -20,11 +27,17 @@ dev_embedded_ItemItem = qml.device('default.qubit', wires=n_wires)
 @qml.qnode(dev_embedded_ItemItem)
 # def circuit(params,state=None):
 def embedded_QRS_circ(embedded_params, params):
-    for item_wire in wires_list:
-        qml.Hadamard(item_wire)
-    AngleEmbedding(embedded_params, wires=wires_list, rotation='Z')
+    for wire in user_wires:
+        qml.Hadamard(wire)
+    AngleEmbedding(embedded_params, wires=user_wires, rotation='Z')
+    BasicEntanglerLayers(weights_users, wires=user_wires)
+    for wire in wires_list:
+        qml.Hadamard(wire)
+
+    # BasicEntanglerLayers(weights_all, wires=wires_list)
     StronglyEntanglingLayers(params, wires=wires_list)
-    return qml.probs(wires=wires_list)
+
+    return qml.probs(wires=item_wires)
 
 
 class embedded_QRS():
