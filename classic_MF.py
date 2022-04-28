@@ -119,8 +119,12 @@ class MF():
         """
         return self.b + self.b_u[:, np.newaxis] + self.b_i[np.newaxis:, ] + self.P.dot(self.Q.T)
 
-    def get_embedded_vectors(self):
+    def get_user_embedded_vectors(self):
         return (self.P)
+
+
+    def get_item_embedded_vectors(self):
+        return (self.Q)
 
     def get_recommendation(self, user_index, movie_indexs):
         return np.array([self.get_rating(user_index, j) for j in movie_indexs])

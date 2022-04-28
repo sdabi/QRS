@@ -96,15 +96,16 @@ if __name__ == '__main__':
 
 
     # -------------------------------- TRAINING CLASSIC MF --------------------------------
-    SDG_MF = MF(R_df.to_numpy(), defines._EMBEDDING_SIZE, alpha=0.1, beta=0.01, norm_weight=0.001, iterations=10000)
+    SDG_MF = MF(R_df.to_numpy(), defines._EMBEDDING_SIZE, alpha=0.1, beta=0.01, norm_weight=0.001, iterations=2000)
     SDG_MF.train()
     HRK_MF = TEST_MODEL(recommendation_sets, SDG_MF)
 
 
     # -------------------------------- TRAINING EMBEDDED QRS --------------------------------
-    user_embedded_vecs = SDG_MF.get_embedded_vectors()
+    user_embedded_vecs = SDG_MF.get_user_embedded_vectors()
+    item_embedded_vecs = SDG_MF.get_item_embedded_vectors()
     visualiser.plot_embedded_vecs(user_embedded_vecs)
-    QRS = embedded_QRS(R_df.to_numpy(), user_embedded_vecs, train_steps=50)
+    QRS = embedded_QRS(R_df.to_numpy(), user_embedded_vecs, item_embedded_vecs, train_steps=50)
     QRS.train()
     HRK_QRS = TEST_MODEL(recommendation_sets, QRS)
 
