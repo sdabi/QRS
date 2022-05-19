@@ -8,6 +8,23 @@ from embedded_QRS import embedded_QRS
 from random_RS import random_RS
 import visualiser
 
+# exporting the recommendation_sets and the R_df
+def export_data():
+    out_recommendation_sets = np.empty(len(recommendation_sets), dtype=object)
+    out_recommendation_sets[:] = recommendation_sets
+    with open('recommendation_sets.npy', 'wb') as f:
+        np.save(f, out_recommendation_sets)
+    with open('R_df_as_numpy.npy', 'wb') as f:
+        np.save(f, R_df_as_numpy)
+
+# importing the recommendation_sets and the R_df - returned as np
+def load_data():
+    with open('recommendation_sets.npy', 'rb') as f:
+        out_recommendation_sets = np.load(f, allow_pickle=True)
+    with open('R_df_as_numpy.npy', 'rb') as f:
+        R_df_as_numpy = np.load(f, allow_pickle=True)
+    return (out_recommendation_sets, R_df_as_numpy)
+
 
 # input: reco_hit_index arr - for every recommendation - where the LOO item was
 # output: HR@K arr
@@ -87,7 +104,9 @@ if __name__ == '__main__':
     LOO = dh.remove_last_interaction_for_every_user()
     R_df = dh.get_interaction_table()
     recommendation_sets = create_recommendation_sets(LOO, dh)
-    print(R_df.to_numpy())
+    R_df_as_numpy = R_df.to_numpy()
+    user_items_removed_indices = [(x[0], x[1]) for x in recommendation_sets]
+    visualiser.print_colored_matrix(R_df.to_numpy(), [user_items_removed_indices])
 
 
     # -------------------------------- RANDOM RECOMMENDATION --------------------------------
@@ -99,6 +118,8 @@ if __name__ == '__main__':
     SDG_MF = MF(R_df.to_numpy(), defines._EMBEDDING_SIZE, alpha=0.1, beta=0.01, norm_weight=0.001, iterations=2000)
     SDG_MF.train()
     HRK_MF = TEST_MODEL(recommendation_sets, SDG_MF)
+    visualiser.print_colored_matrix(SDG_MF.full_matrix(), [user_items_removed_indices])
+    visualiser.plot_HRK([HRK_MF, HRK_RAND_RECO], ["MF", "RAND_RECO"])
 
 
     # -------------------------------- TRAINING EMBEDDED QRS --------------------------------
