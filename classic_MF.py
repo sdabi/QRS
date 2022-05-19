@@ -2,10 +2,14 @@ import numpy as np
 
 np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
 
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
+
+
 
 class MF():
 
-    def __init__(self, R, K, alpha, beta, norm_weight, iterations):
+    def __init__(self, R, K, alpha, beta, iterations):
         """
         Perform matrix factorization to predict empty
         entries in a matrix.
@@ -22,7 +26,6 @@ class MF():
         self.K = K
         self.alpha = alpha
         self.beta = beta
-        self.norm_weight = norm_weight
         self.iterations = iterations
 
     def train(self):
@@ -46,64 +49,55 @@ class MF():
         # Perform stochastic gradient descent for number of iterations
         training_process = []
         for i in range(self.iterations):
-            np.random.shuffle(self.samples)
-            self.sgd()
-            mse = self.mse()
-            training_process.append((i, mse))
+            total_error = self.sgd()
+            training_process.append(total_error)
             if (i + 1) % 250 == 0:
-                print("Iteration: %d ; error = %.4f" % (i + 1, mse))
+                print("Iteration: %d ; error = %.4f" % (i + 1, total_error))
 
         return training_process
 
 
     def sgd(self):
-        """
-        Perform stochastic graident descent
-        """
+
+        total_e = 0
         for i, j, r in self.samples:
             # Computer prediction and error
             prediction = self.get_rating(i, j)
-            norm = self.get_norm(i, j)
-            e = (r - prediction) + (self.norm_weight * norm)
+            prediction_after_sig = (sigmoid(prediction) - 0.5) * 2
 
-            # Update biases
-            self.b_u[i] += self.alpha * (e - self.beta * self.b_u[i])
+            e = (r - prediction_after_sig)
+            total_e += e**2 + self.beta * self.get_norm(i, j)
 
-            # Update user and item latent feature matrices
-            self.P[i, :] += self.alpha * (e * self.Q[j, :] - self.beta * self.P[i, :])
+            delta_prediction = - 2 * np.exp(-prediction) / ((1 + np.exp(-prediction))**2)
+            delta_prediction = 2 * e * delta_prediction
 
-        for i, j, r in self.samples:
-            # Computer prediction and error
-            prediction = self.get_rating(i, j)
-            norm = self.get_norm(i, j)
-            e = (r - prediction) + (self.norm_weight * norm)
+            self.P[i, :] -= self.alpha * ((delta_prediction * self.Q[j, :]) + (2 * self.beta * self.P[i, :]))
+            self.Q[j, :] -= self.alpha * ((delta_prediction * self.P[i, :]) + (2 * self.beta * self.Q[j, :]))
 
-            # Update biases
-            self.b_i[j] += self.alpha * (e - self.beta * self.b_i[j])
+            self.b_u[i] -= self.alpha * ((delta_prediction) + (2 * self.beta * self.b_u[i]))
+            self.b_i[j] -= self.alpha * ((delta_prediction) + (2 * self.beta * self.b_i[j]))
 
-            # Update user and item latent feature matrices
-            self.Q[j, :] += self.alpha * (e * self.P[i, :] - self.beta * self.Q[j, :])
-
-
-    def mse(self):
-        """
-        A function to compute the total mean square error
-        """
-        xs, ys = self.R.nonzero()
-        predicted = self.full_matrix()
-        #         e = self.R - predicted
-        #         e = e**2
-        #         error = np.sum(e)
-        error = 0
-        for x, y in zip(xs, ys):
-            error += pow(self.R[x, y] - predicted[x, y], 2)
-        return np.sqrt(error)
+            #
+            #
+            # self.P[i, :] += self.alpha * (e * self.Q[j, :] - self.beta * self.P[i, :])
+            # self.Q[j, :] += self.alpha * (e * self.P[i, :] - self.beta * self.Q[j, :])
+            #
+            # # Update biases
+            # self.b_i[j] += self.alpha * (e - self.beta * self.b_i[j])
+            # self.b_u[i] += self.alpha * (e - self.beta * self.b_u[i])
+        return total_e
 
     def get_rating(self, i, j):
         """
         Get the predicted rating of user i and item j
         """
+        # print("P", self.P[i, :])
+        # print("Q", self.Q[j, :])
+        # print(self.P[i, :].dot(self.Q[j, :].T))
         prediction = self.b + self.b_u[i] + self.b_i[j] + self.P[i, :].dot(self.Q[j, :].T)
+        # if abs(prediction) > 100:
+        #     prediction = np.sign(prediction)*100
+        # return (sigmoid(prediction)-0.5)*2
         return prediction
 
     def get_norm(self, i, j):
@@ -117,7 +111,7 @@ class MF():
         """
         Computer the full matrix using the resultant biases, P and Q
         """
-        return self.b + self.b_u[:, np.newaxis] + self.b_i[np.newaxis:, ] + self.P.dot(self.Q.T)
+        return (sigmoid(self.b + self.b_u[:, np.newaxis] + self.b_i[np.newaxis:, ] + self.P.dot(self.Q.T))-0.5)*2
 
     def get_user_embedded_vectors(self):
         return (self.P)
@@ -127,4 +121,7 @@ class MF():
         return (self.Q)
 
     def get_recommendation(self, user_index, movie_indexs):
-        return np.array([self.get_rating(user_index, j) for j in movie_indexs])
+        print("MF reco for user:", user_index, "uninter movies:\n", movie_indexs)
+        r = np.array([self.get_rating(user_index, j) for j in movie_indexs])
+        print(r)
+        return r
