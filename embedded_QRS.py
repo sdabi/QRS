@@ -23,33 +23,6 @@ weights_all = np.zeros((1, n_wires), requires_grad=False)
 
 
 
-def density_matrix(state):
-    return state * np.conj(state).T
-
-
-
-
-
-# wrap device in qml.qnode
-dev_embedded_ItemItem = qml.device('default.qubit', wires=n_wires)
-@qml.qnode(dev_embedded_ItemItem)
-# def circuit(params,state=None):
-def embedded_QRS_circ(embedded_params, params, expected_state_dm):
-    for p in params:
-        p = np.array([p])
-        for wire in item_wires:
-            qml.Hadamard(wire)
-        AngleEmbedding(embedded_params, wires=item_wires, rotation='Z')
-        BasicEntanglerLayers(weights_users, wires=item_wires)
-        for wire in item_wires:
-            qml.Hadamard(wire)
-
-        # BasicEntanglerLayers(weights_all, wires=wires_list)
-        StronglyEntanglingLayers(p, wires=item_wires)
-
-    return qml.expval(qml.Hermitian(expected_state_dm, wires=item_wires))
-
-
 # wrap device in qml.qnode
 dev_embedded_ItemItem_reco = qml.device('default.qubit', wires=n_wires)
 @qml.qnode(dev_embedded_ItemItem_reco)
@@ -70,21 +43,81 @@ def embedded_QRS_circ_reco(embedded_params, params):
     return qml.probs(wires=item_wires)
 
 
-class embedded_QRS():
-    def __init__(self, R, user_embedded_vecs, item_embedded_vecs, train_steps):
+def randomize_init_params():
+    shape = StronglyEntanglingLayers.shape(n_layers=defines._NUM_OF_LAYERS, n_wires=n_item_wires)
+    return np.random.random(size=shape, requires_grad=True)
+
+
+class embedded_QRS_model1():
+    def __init__(self, R, user_embedded_vecs, item_embedded_vecs, init_parms, train_steps):
         self.R = R
         self.user_embedded_vecs = user_embedded_vecs
         self.item_embedded_vecs = item_embedded_vecs
         self.normalize_embdded_vecotrs()
         visualiser.plot_embedded_vecs(self.user_embedded_vecs)
-        shape = qml.StronglyEntanglingLayers.shape(n_layers=defines._NUM_OF_LAYERS, n_wires=n_item_wires)
-        self.params = np.random.random(size=shape, requires_grad=True)
+
+        self.interacted_items_matrix = self.create_interacted_items_matrix()
+        self.bad_interacted_items_matrix = self.create_bad_interacted_items_matrix()
+        self.uninteracted_items_matrix = self.create_uninteracted_items_matrix()
+        self.expected_probs_vecs = self.create_expected_probs_vecs()
+
+        self.params = np.array(init_parms, requires_grad=True)
         self.train_steps = train_steps
         self.error_ver_weights = self.get_error_vec_weights()
+        self.common_item_vec = self.calc_common_items_vecs()
         self.total_cost = []
         self.error_per_user = []
         for i in range(defines._NUM_OF_USERS):
             self.error_per_user.append([])
+
+    def create_interacted_items_matrix(self):
+        expected_mat = []
+        for user in range(defines._NUM_OF_USERS):
+            items = np.where(self.R[user] == 1)[0]
+            expected_mat.append(items)
+        return expected_mat
+
+    def create_bad_interacted_items_matrix(self):
+        expected_mat = []
+        for user in range(defines._NUM_OF_USERS):
+            items = np.where(self.R[user] == defines._BAD_SAMPLED_INTER)[0]
+            expected_mat.append(items)
+        return expected_mat
+
+    def create_uninteracted_items_matrix(self):
+        expected_mat = []
+        for user in range(defines._NUM_OF_USERS):
+            interacted_items     = self.interacted_items_matrix[user]
+            bad_interacted_items = self.bad_interacted_items_matrix[user]
+            uninteracted_items   = [i for i in range(defines._NUM_OF_ITEMS) if
+                                  i not in interacted_items and i not in bad_interacted_items]
+            expected_mat.append(uninteracted_items)
+        return expected_mat
+
+    def create_expected_probs_vecs(self):
+        expected_probs_vecs = []
+        for user in range(defines._NUM_OF_USERS):
+
+            # getting the indecies where user have positive interaction
+            interacted_items = self.interacted_items_matrix[user]
+
+            # getting the indecies where user have negetive interaction
+            bad_interacted_items = self.bad_interacted_items_matrix[user]
+
+            # building the expected prop array
+            # for interacted items - the expected val is _MAX_HIST_INTER_WEIGHT/(num of interacted items)
+            # for un-interacted items - the expected val is (1-_MAX_HIST_INTER_WEIGHT)/ num of un-interacted items
+            # for bad-interacted items - the expected val is 0
+            expected_probs = np.ones(defines._NUM_OF_ITEMS, requires_grad=False) * (1 - defines._MAX_HIST_INTER_WEIGHT) / (
+                        defines._NUM_OF_ITEMS - len(interacted_items) - len(bad_interacted_items))
+            if (len(interacted_items) > 0):
+                expected_probs[interacted_items] = defines._MAX_HIST_INTER_WEIGHT / len(interacted_items)
+            expected_probs[bad_interacted_items] = 0
+
+            expected_probs_vecs.append(expected_probs)
+
+        return expected_probs_vecs
+
 
     def train(self):
         opt_item_item = qml.AdamOptimizer(stepsize=0.1, beta1=0.5, beta2=0.599, eps=1e-08)
@@ -111,60 +144,50 @@ class embedded_QRS():
             # running the circuit
             probs = embedded_QRS_circ_reco(embedded_vec_for_user, params)
 
-            # getting the indecies where user have positive interaction
-            interacted_items = np.where(self.R[user] == 1)[0]
+            # getting expected probs for user
+            expected_probs = self.expected_probs_vecs[user]
 
-            # getting the indecies where user have negetive interaction
-            bad_interacted_items = np.where(self.R[user] == defines._BAD_SAMPLED_INTER)[0]
-
-            # building the expected prop array
-            # for interacted items - the expected val is _MAX_HIST_INTER_WEIGHT/(num of interacted items)
-            # for un-interacted items - the expected val is (1-_MAX_HIST_INTER_WEIGHT)/ num of un-interacted items
-            # for bad-interacted items - the expected val is 0
-            expected_probs = np.ones(defines._NUM_OF_ITEMS, requires_grad=False) * (1 - defines._MAX_HIST_INTER_WEIGHT) / (
-                        defines._NUM_OF_ITEMS - len(interacted_items) - len(bad_interacted_items))
-            if (len(interacted_items) > 0):
-                expected_probs[interacted_items] = defines._MAX_HIST_INTER_WEIGHT / len(interacted_items)
-            expected_probs[bad_interacted_items] = 0
-
-
-            # FIDELITY CIRC
-            # expected_probs = np.sqrt(expected_probs)
-            # expected_probs = [[np.array((i), requires_grad=False)] for i in expected_probs]
-            # expected_output_state_dm = density_matrix(expected_probs)
-            # f = embedded_QRS_circ(embedded_vec_for_user, params, expected_output_state_dm)
-            # loss = loss + (1 - f) ** 2
-            # print("total loss", (loss/defines._NUM_OF_USERS))
-            # return loss/defines._NUM_OF_USERS
-
-            uninteracted_items = [i for i in range(defines._NUM_OF_ITEMS) if i not in interacted_items and i not in bad_interacted_items]
             # calc the error for the user
-            error_per_item = (probs - expected_probs)**2
+            error_per_item = (expected_probs - probs)
+
+            # remove error on uninteracted items - punishing only on interacted ones
+            uninteracted_items = self.uninteracted_items_matrix[user]
             if len(uninteracted_items) != 0:
                 error_per_item._value[uninteracted_items] = 0 # this is an autoguard object - accessing to its values
 
-            max_error_for_user = 0
-            if len(bad_interacted_items) != 0:
-                max_error_for_user = 1 + 1 / len(interacted_items)
-            else:
-                if len(interacted_items) == 1:
-                    max_error_for_user = 1
-                else:
-                    max_error_for_user = 1 - 1 / len(interacted_items)
+            # "relu" activation
+            # error_per_item_negative = error_per_item/2
+            # error_per_item = np.maximum(error_per_item_negative, error_per_item)
 
-            cost_for_user = sum(error_per_item)/max_error_for_user
+            # add punishment to bad interacted items
+            bad_interacted_items = self.bad_interacted_items_matrix[user]
+            error_per_item._value[bad_interacted_items] = error_per_item._value[bad_interacted_items]*1.5
+            error_per_item = error_per_item**2
+
+            # error_per_item = error_per_item * self.error_ver_weights
+            # error_per_item = error_per_item * self.common_item_vec
+
+
+            cost_for_user = sum(error_per_item)
             self.error_per_user[user].append(cost_for_user._value)
 
             total_cost += cost_for_user
 
             # DEBUG:
-            if user == 0:
-                print("probs for user:")
-                visualiser.print_colored_matrix(probs._value, [bad_interacted_items, interacted_items], is_vec=1, all_positive=1, digits_after_point=2)
-                print("expected probs for user:")
-                visualiser.print_colored_matrix(expected_probs, [bad_interacted_items, interacted_items], is_vec=1, all_positive=1, digits_after_point=2)
+            # if user == 0:
+            #     print("user:", user)
+            #     visualiser.print_colored_matrix(probs._value, [bad_interacted_items, interacted_items], is_vec=1,
+            #                                     all_positive=1, digits_after_point=2)
+            #     # visualiser.print_colored_matrix(self.error_ver_weights, [bad_interacted_items, interacted_items], is_vec=1,
+            #     #                                 all_positive=1, digits_after_point=2)
+            #     # visualiser.print_colored_matrix(self.common_item_vec, [bad_interacted_items, interacted_items], is_vec=1,
+            #     #                                 all_positive=1, digits_after_point=2)
+            #     # visualiser.print_colored_matrix(error_per_item._value, [bad_interacted_items, interacted_items], is_vec=1,
+            #     #                                 all_positive=1, digits_after_point=2)
+            #     print("cost_for_user", cost_for_user._value, "\n")
 
-        print("total_cost:", total_cost._value,"\n")
+        print("total_cost:", total_cost._value)
+        print("------------------------------------","\n")
         self.total_cost.append(total_cost._value)
         return total_cost
 
@@ -179,43 +202,58 @@ class embedded_QRS():
         self.item_embedded_vecs /= (self.item_embedded_vecs.max() + 0.0001)  # max in all data is 1
         self.item_embedded_vecs *= (math.pi / defines._EMBEDDING_SIZE)  # sum of each row is up to pi
 
-    def get_recommendation(self, user, uninteracted_items):
-        # getting the indecies where user have positive interaction
-        interacted_items = np.where(self.R[user] == 1)[0]
-
-        # getting the indecies where user have negetive interaction
-        bad_interacted_items = np.where(self.R[user] == defines._BAD_SAMPLED_INTER)[0]
-
-        embedded_vec_for_user = self.user_embedded_vecs[user]
-
+    def get_recommendation(self, user, uninteracted_items, removed_movie):
         # get the probs vector for user
+        embedded_vec_for_user = self.user_embedded_vecs[user]
         probs = embedded_QRS_circ_reco(embedded_vec_for_user, self.params)
 
+        # DEBUG
         print("recommendation for user wo hist removal:", user)
-        visualiser.print_colored_matrix(probs, [bad_interacted_items, interacted_items], is_vec=1,
+        interacted_items = self.interacted_items_matrix[user]
+        bad_interacted_items = self.bad_interacted_items_matrix[user]
+        visualiser.print_colored_matrix(probs, [bad_interacted_items, interacted_items, np.array([removed_movie])], is_vec=1,
                                         all_positive=1, digits_after_point=2)
 
         # history removal - remove interacted items
-        probs[interacted_items] = 0
-        probs[bad_interacted_items] = 0
-        probs = probs/sum(probs)
-
+        # probs[interacted_items] = 0
+        # probs[bad_interacted_items] = 0
+        # probs = probs/sum(probs)
         # print("recommendation for user w hist removal:", user)
         # visualiser.print_colored_matrix(probs, [bad_interacted_items, interacted_items], is_vec=1,
         #                                 all_positive=1, digits_after_point=2)
-        print("")  # new line
+        # print("")  # new line
 
         return probs
 
+    def get_QRS_reco_matrix(self):
+        QRS_reco_matrix = []
+        for user in range(defines._NUM_OF_USERS):
+            embedded_vec_for_user = self.user_embedded_vecs[user]
+            probs = embedded_QRS_circ_reco(embedded_vec_for_user, self.params)
+            QRS_reco_matrix.append(probs)
+        return QRS_reco_matrix
 
 
     def get_error_vec_weights(self):
-        error_vec_weights = np.zeros(defines._NUM_OF_ITEMS) + 0.001
+        error_vec_weights = np.zeros(defines._NUM_OF_ITEMS)
         for user in range(defines._NUM_OF_USERS):
             interacted_items = np.where(self.R[user] == 1)[0]
             for i in interacted_items:
                 error_vec_weights[i] += 1
-        print(error_vec_weights)
-        error_vec_weights = 1/error_vec_weights
-        print(error_vec_weights)
+        error_vec_weights = [1/i if i>0 else 0 for i in error_vec_weights]
         return error_vec_weights
+
+
+    def calc_common_items_vecs(self):
+        common_item_vec = np.zeros(defines._NUM_OF_ITEMS)
+        item_interacted_count = np.zeros(defines._NUM_OF_ITEMS)
+        for user in range(defines._NUM_OF_USERS):
+            for item in range(defines._NUM_OF_ITEMS):
+                if self.R[user][item] == 1:
+                    item_interacted_count[item] += 1
+                    common_item_vec[item] += np.count_nonzero(self.R[user] == 1) - 1 # adding the other interactions for user
+
+        common_item_vec = [item/count if count > 0 else 0 for (item,count) in zip (common_item_vec, item_interacted_count) ] # calc average item interactions
+        common_item_vec = common_item_vec/max(common_item_vec) + 0.1
+        return common_item_vec
+

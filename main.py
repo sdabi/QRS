@@ -2,11 +2,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import defines
+import embedded_QRS
 from classic_MF import MF
 from data_handler import Data_Handler
 from embedded_QRS import embedded_QRS
 from random_RS import random_RS
 import visualiser
+from embedded_QRS import randomize_init_params
 
 # exporting the recommendation_sets and the R_df
 def export_data():
@@ -43,10 +45,18 @@ def create_HRK(hit_arr):
 #         LOO item
 #         scores array - in corelative order to uninteracted movies
 # output: the index of the LOO item in the scores array
-def get_LOO_index_in_scores_array(uninteracted_movies, LOO_item, reco_scores):
+def get_LOO_index_in_scores_array(uninteracted_movies, LOO_item, reco_scores, search_reco_item_within_all_items=0):
+    print("reco_scores", reco_scores)
+    print("LOO_item", LOO_item)
+    print("uninteracted_movies", uninteracted_movies)
     t = np.array(uninteracted_movies)
+    if (search_reco_item_within_all_items):
+        t = np.array((list(range(defines._NUM_OF_ITEMS))))
     desired_inter_index_pos = np.where(t == LOO_item)[0][0]
-    return (np.where(reco_scores.argsort()[::-1][:len(reco_scores)]==desired_inter_index_pos)[0])[0]+1
+    print("desired_inter_index_pos", desired_inter_index_pos)
+    hit_index = (np.where(reco_scores.argsort()[::-1][:len(reco_scores)]==desired_inter_index_pos)[0])[0]+1
+    print (desired_inter_index_pos)
+    return desired_inter_index_pos
 
 
 # input:    1. list of tuples
@@ -83,7 +93,7 @@ def TEST_MODEL(recommendation_sets, MODEL):
     reco_hit_index = []
     for user, removed_movie, uninter_movies in recommendation_sets:
         # get recommendations from the model - on uninter_movies list
-        reco_scores = MODEL.get_recommendation(user, uninter_movies)
+        reco_scores = MODEL.get_recommendation(user, uninter_movies, removed_movie)
 
         # getting the index of the LOO item from the recommendations
         reco_hit_index.append(get_LOO_index_in_scores_array(uninter_movies, removed_movie, reco_scores))
@@ -133,7 +143,7 @@ if __name__ == '__main__':
     visualiser.plot_HRK([HRK_MF, HRK_QRS, HRK_RAND_RECO], ["MF", "QRS", "RAND_RECO"])
 
 
-
+    randomize_init_params()
 
 # ======================================= FULL ORIG DATA TESTING =======================================
 if __name__ == 'FULL_ORIG_DATA_TESTING':

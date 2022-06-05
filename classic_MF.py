@@ -120,8 +120,5 @@ class MF():
     def get_item_embedded_vectors(self):
         return (self.Q)
 
-    def get_recommendation(self, user_index, movie_indexs):
-        print("MF reco for user:", user_index, "uninter movies:\n", movie_indexs)
-        r = np.array([self.get_rating(user_index, j) for j in movie_indexs])
-        print(r)
-        return r
+    def get_recommendation(self, user_index, movie_indexs, removed_movie):
+        return np.array([self.get_rating(user_index, j) for j in movie_indexs])
