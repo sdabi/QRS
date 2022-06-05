@@ -117,11 +117,22 @@ class Data_Handler():
         return self.user2user_encoded[userID]
 
 
-    def duplicated_user_inter(self, orig_user, new_user):
+    def duplicated_user_inter(self, orig_user, new_user, shuffle_timestamp = 0):
+        # delete the "new_user" entries from the existing DF
         self.rating_df = self.rating_df.drop(self.rating_df.index[self.rating_df['userId'] == new_user].tolist())
+
+        # copy the "orig_user" entries to the DF"
         t = self.rating_df[self.rating_df['userId'] == orig_user].copy()
         t.loc[:, "userId"] = new_user
+
+        if shuffle_timestamp:
+            timestamp_arr = np.arange(t.shape[0])
+            np.random.shuffle(timestamp_arr)
+            t.loc[:, "timestamp"] = timestamp_arr # reshuffling the timestamp entry
+
         self.rating_df = pd.concat([self.rating_df, t])
+
+        # restarting the indices
         self.rating_df = self.rating_df.reset_index(drop=True)
 
 
