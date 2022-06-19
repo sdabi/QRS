@@ -131,7 +131,7 @@ class embedded_QRS_model1():
             self.params = opt_item_item.step(lambda v: self.total_cost_embedded_QRS(v), self.params)
 
         print("--- embedding train took %s seconds ---" % math.ceil(time.time() - start_time_train))
-        visualiser.plot_cost_arrs([self.total_cost])
+        # visualiser.plot_cost_arrs([self.total_cost])
         visualiser.plot_cost_arrs(self.error_per_user)
 
 
@@ -161,7 +161,7 @@ class embedded_QRS_model1():
 
             # add punishment to bad interacted items
             bad_interacted_items = self.bad_interacted_items_matrix[user]
-            error_per_item._value[bad_interacted_items] = error_per_item._value[bad_interacted_items]*1.5
+            error_per_item._value[bad_interacted_items] = error_per_item._value[bad_interacted_items]*10
             error_per_item = error_per_item**2
 
             # error_per_item = error_per_item * self.error_ver_weights
@@ -219,9 +219,8 @@ class embedded_QRS_model1():
         # probs[bad_interacted_items] = 0
         # probs = probs/sum(probs)
         # print("recommendation for user w hist removal:", user)
-        # visualiser.print_colored_matrix(probs, [bad_interacted_items, interacted_items], is_vec=1,
+        # visualiser.print_colored_matrix(probs, [bad_interacted_items, interacted_items, np.array([removed_movie])], is_vec=1,
         #                                 all_positive=1, digits_after_point=2)
-        # print("")  # new line
 
         return probs
 
@@ -232,6 +231,9 @@ class embedded_QRS_model1():
             probs = embedded_QRS_circ_reco(embedded_vec_for_user, self.params)
             QRS_reco_matrix.append(probs)
         return QRS_reco_matrix
+
+    def get_QRS_opt_params(self):
+        return self.params
 
 
     def get_error_vec_weights(self):
