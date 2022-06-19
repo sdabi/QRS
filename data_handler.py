@@ -15,7 +15,7 @@ class Data_Handler():
             self.movie_ids_list = np.sort(self.rating_df["movieId"].unique().tolist())
 
         else:
-            rig = random_interactions_data_generator(int((defines._NUM_OF_USERS*defines._NUM_OF_ITEMS)/10))
+            rig = random_interactions_data_generator(int((defines._NUM_OF_USERS*defines._NUM_OF_ITEMS)/10), int((defines._NUM_OF_USERS*defines._NUM_OF_ITEMS)/10))
             self.rating_df = rig.get_rating_df()
             self.user_ids_list = list(range(defines._NUM_OF_USERS))
             self.movie_ids_list = list(range(defines._NUM_OF_ITEMS))
@@ -64,6 +64,7 @@ class Data_Handler():
                                                                    (self.rating_df.rating == 1), "movieId"].values))
 
         num_of_bad_samples = min([num_of_interactions_for_user, random.randint(0,int(len(uninteracted_movieId)/2))])
+        num_of_bad_samples = 0
 
         # sample movies to add bad sample to
         uninteracted_movieId_sampled = np.random.choice(uninteracted_movieId, num_of_bad_samples, replace=False)
