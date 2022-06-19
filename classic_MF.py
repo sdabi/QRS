@@ -53,7 +53,7 @@ class MF():
             training_process.append(total_error)
             if (i + 1) % 250 == 0:
                 print("Iteration: %d ; error = %.4f" % (i + 1, total_error))
-
+        print("training Done")
         return training_process
 
 
@@ -79,6 +79,8 @@ class MF():
 
             #
             #
+            # e = (r - prediction_after_sig)
+            # total_e += e**2 + self.beta * self.get_norm(i, j)
             # self.P[i, :] += self.alpha * (e * self.Q[j, :] - self.beta * self.P[i, :])
             # self.Q[j, :] += self.alpha * (e * self.P[i, :] - self.beta * self.Q[j, :])
             #
@@ -88,12 +90,6 @@ class MF():
         return total_e
 
     def get_rating(self, i, j):
-        """
-        Get the predicted rating of user i and item j
-        """
-        # print("P", self.P[i, :])
-        # print("Q", self.Q[j, :])
-        # print(self.P[i, :].dot(self.Q[j, :].T))
         prediction = self.b + self.b_u[i] + self.b_i[j] + self.P[i, :].dot(self.Q[j, :].T)
         # if abs(prediction) > 100:
         #     prediction = np.sign(prediction)*100

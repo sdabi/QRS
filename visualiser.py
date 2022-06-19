@@ -86,12 +86,13 @@ def print_colored_matrix(mat, colored_values=[], is_vec=0, all_positive=0, digit
     return
 
 def plot_cost_arrs(cost_arrs):
-    fig = plt.figure(figsize=(9, 9))
+    cmap = plt.get_cmap('tab20')
+    fig = plt.figure(figsize=(10, 20))
     ax = fig.add_subplot()
 
     x = range(len(cost_arrs[0]))
     for i, cost_arr in enumerate(cost_arrs):
-        ax.plot(x, cost_arr, label=i)
+        ax.plot(x, cost_arr, color=cmap(i), label=i, linewidth=2)
     ax.legend(range(len(cost_arrs)), loc='upper right')
 
     ymax = max(max(l) for l in cost_arrs)
@@ -101,5 +102,28 @@ def plot_cost_arrs(cost_arrs):
 
     plt.xlim(xmin=0,xmax=len(x)-1)
     plt.show()
+
+
+
+def print_reco_matrix(mat, removed_inter_indicies):
+    space_for_print = 3
+
+    print("     ", end="")
+    for i in range(defines._NUM_OF_ITEMS):
+        print(colored(GRAY, underline('{val:>{space_for_print}}'.format(val=i, space_for_print=space_for_print))), end="")
+    print("") # new line
+    for row_num, vec in enumerate(mat):
+        print(colored(GRAY, '{val:>{space_for_print}}'.format(val=row_num, space_for_print=3)), colored(GRAY, "|"), end="")
+        for col_num, val in enumerate(vec):
+            if val == 0:
+                print('{val:>{space_for_print}}'.format(val=val, space_for_print=space_for_print),end="")
+            if val == 1:
+                print(colored(GREEN, '{val:>{space_for_print}}'.format(val=val, space_for_print=space_for_print)), end="")
+            if val == -1:
+                print(colored(RED, '{val:>{space_for_print}}'.format(val=val, space_for_print=space_for_print)), end="")
+            if (row_num, col_num) in removed_inter_indicies:
+                print(colored(BLUE, '{val:>{space_for_print}}'.format(val=val, space_for_print=space_for_print)), end="")
+        print("") # new line
+    return
 
 
