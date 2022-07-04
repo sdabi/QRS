@@ -106,13 +106,10 @@ class QRS_hist_removal_per_user():
                 self.params_per_user[user] = opt_item_item.step(lambda v: self.total_cost_embedded_QRS(v, user), self.params_per_user[user])
 
             print("--- embedding train took %s seconds ---" % math.ceil(time.time() - start_time_train))
-        # visualiser.plot_cost_arrs([self.total_cost])
         visualiser.plot_cost_arrs(self.error_per_user)
 
 
     def total_cost_embedded_QRS(self, params, user):
-        total_cost = 0
-
         embedded_vec_for_user = self.user_embedded_vecs[user]
 
         # running the circuit
@@ -135,7 +132,6 @@ class QRS_hist_removal_per_user():
 
         cost_for_user = sum(error_per_item)
         self.error_per_user[user].append(cost_for_user._value)
-        total_cost = cost_for_user
 
         # DEBUG:
         if user == 0:
@@ -147,12 +143,9 @@ class QRS_hist_removal_per_user():
             visualiser.print_colored_matrix(error_per_item._value, [bad_interacted_items, interacted_items], is_vec=1,
                                             all_positive=1, digits_after_point=2)
 
-            print("cost_for_user", cost_for_user._value, "\n")
-
-        print("total_cost:", total_cost._value)
+        print("total_cost:", cost_for_user._value)
         print("------------------------------------","\n")
-        # self.total_cost.append(total_cost._value)
-        return total_cost
+        return cost_for_user
 
 
     def get_recommendation(self, user, uninteracted_items, removed_movie):
@@ -170,6 +163,20 @@ class QRS_hist_removal_per_user():
                                         all_positive=1, digits_after_point=2)
 
         return probs
+
+
+    def get_QRS_reco_matrix(self):
+        QRS_reco_matrix = []
+        for user in range(defines._NUM_OF_USERS):
+            embedded_vec_for_user = self.user_embedded_vecs[user]
+            opt_params_for_user = self.params_per_user[user]
+            probs = QRS_hist_removal_per_user_circ(embedded_vec_for_user, self.QRS_opt_params, opt_params_for_user)
+            QRS_reco_matrix.append(probs)
+        return QRS_reco_matrix
+
+    def get_QRS_opt_params(self):
+        return self.params_per_user
+
 
 
 
