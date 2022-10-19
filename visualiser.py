@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.decomposition import PCA
 import defines
+import matplotlib.cm as cm
 
 RED = (200, 50, 50)
 GREEN = (0, 200, 100)
@@ -24,19 +25,44 @@ def underline(text):
 def plot_embedded_vecs(vecs):
     pca = PCA(n_components=2)
     vecs_2d = pca.fit_transform(vecs)
-    plt.scatter(vecs_2d[:,0], vecs_2d[:,1])
+
+    max_diff_x = max(vecs_2d,key=lambda item:item[0])[0] - min(vecs_2d,key=lambda item:item[0])[0]
+    max_diff_y = max(vecs_2d,key=lambda item:item[1])[1] - min(vecs_2d,key=lambda item:item[1])[1]
+
+
     for i, point in enumerate(vecs_2d):
-        plt.annotate(i, (point[0], point[1]),
-                     xytext=(point[0], point[1]+0.01), fontsize=8)
+        x, y = point[0], point[1]
+        plt.scatter(x, y, color=cm.tab20b(i))
+        plt.annotate(i, (x, y),
+                     xytext=(x+(max_diff_x/32), y+(max_diff_y/32)), fontsize=8, color=cm.tab20b(i%20), weight='bold')
     plt.show()
+
+def plot_embedded_vecs_3d(vecs):
+    pca = PCA(n_components=3)
+    vecs_3d = pca.fit_transform(vecs)
+
+    fig_3d = plt.figure()
+    ax_3d = fig_3d.add_subplot(111, projection='3d')
+
+    for i, xyz_ in enumerate(vecs_3d):
+        x = xyz_[0]
+        y = xyz_[1]
+        z = xyz_[2]
+        label = i
+        ax_3d.scatter(x, y, z, color='b')
+        ax_3d.text(x, y, z, '%s' % (label), size=20, zorder=1, color='k')
+    plt.show()
+
 
 
 
 def plot_HRK(hrk_list, titles_list):
     y_axis = np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
+    fig = plt.figure(figsize=(10, 10))
+    ax = fig.add_subplot()
 
     for HRK, title in zip(hrk_list, titles_list):
-        plt.plot(HRK, label=title)
+        ax.plot(HRK, label=title)
 
     plt.ylim([0, 1.1])
     plt.yticks(y_axis)
@@ -105,8 +131,13 @@ def plot_cost_arrs(cost_arrs):
 
 
 
-def print_reco_matrix(mat, removed_inter_indicies):
-    space_for_print = 3
+def print_reco_matrix(mat, removed_inter_indicies, values=[], all_positive=1, digits_after_point=0):
+    space_for_print = (1 - all_positive) + digits_after_point + 3
+
+    if len(values) == 0:
+        mat_to_print = mat
+    else:
+        mat_to_print = values
 
     print("     ", end="")
     for i in range(defines._NUM_OF_ITEMS):
@@ -115,14 +146,18 @@ def print_reco_matrix(mat, removed_inter_indicies):
     for row_num, vec in enumerate(mat):
         print(colored(GRAY, '{val:>{space_for_print}}'.format(val=row_num, space_for_print=3)), colored(GRAY, "|"), end="")
         for col_num, val in enumerate(vec):
-            if val == 0:
-                print('{val:>{space_for_print}}'.format(val=val, space_for_print=space_for_print),end="")
-            if val == 1:
-                print(colored(GREEN, '{val:>{space_for_print}}'.format(val=val, space_for_print=space_for_print)), end="")
-            if val == -1:
-                print(colored(RED, '{val:>{space_for_print}}'.format(val=val, space_for_print=space_for_print)), end="")
+            val_to_print = mat_to_print[row_num][col_num]
+            if digits_after_point:
+                val_to_print = '{val:1.{digits_after_point}f}'.format(val=val_to_print, digits_after_point=digits_after_point)
             if (row_num, col_num) in removed_inter_indicies:
-                print(colored(BLUE, '{val:>{space_for_print}}'.format(val=val, space_for_print=space_for_print)), end="")
+                print(colored(BLUE, '{val:>{space_for_print}}'.format(val=val_to_print, space_for_print=space_for_print)), end="")
+                continue
+            if val == 0:
+                print('{val:>{space_for_print}}'.format(val=val_to_print, space_for_print=space_for_print),end="")
+            if val == 1:
+                print(colored(GREEN, '{val:>{space_for_print}}'.format(val=val_to_print, space_for_print=space_for_print)), end="")
+            if val == -1:
+                print(colored(RED, '{val:>{space_for_print}}'.format(val=val_to_print, space_for_print=space_for_print)), end="")
         print("") # new line
     return
 
