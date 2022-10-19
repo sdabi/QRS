@@ -59,9 +59,12 @@ def embedded_QRS_circ_reco(embedded_params, params):
     return qml.probs(wires=item_wires)
 
 
-def randomize_init_params():
-    shape = StronglyEntanglingLayers.shape(n_layers=defines._NUM_OF_LAYERS, n_wires=n_item_wires)
-    return np.random.random(size=shape, requires_grad=True)
+def randomize_init_params(num_of_layers_l):
+    init_params_list = []
+    for num_of_layers in num_of_layers_l:
+        shape = StronglyEntanglingLayers.shape(n_layers=num_of_layers, n_wires=n_item_wires)
+        init_params_list.append(np.random.random(size=shape, requires_grad=True))
+    return init_params_list
 
 
 class embedded_QRS_model1():
@@ -158,8 +161,8 @@ class embedded_QRS_model1():
             self.params = opt_item_item.step(lambda v: self.total_cost_embedded_QRS(v), self.params)
 
         print("--- embedding train took %s seconds ---" % math.ceil(time.time() - start_time_train))
-        # visualiser.plot_cost_arrs([self.total_cost])
-        visualiser.plot_cost_arrs(self.error_per_user)
+        visualiser.plot_cost_arrs([self.total_cost])
+        # visualiser.plot_cost_arrs(self.error_per_user)
 
 
     def total_cost_embedded_QRS(self, params):
@@ -204,21 +207,21 @@ class embedded_QRS_model1():
             total_cost += cost_for_user
 
             # DEBUG:
-            if user == 8:
-                print("user:", user)
-                visualiser.print_colored_matrix(expected_probs, [bad_interacted_items, interacted_items], is_vec=1,
-                                                all_positive=1, digits_after_point=2)
-                visualiser.print_colored_matrix(probs._value, [bad_interacted_items, interacted_items], is_vec=1,
-                                                all_positive=1, digits_after_point=2)
-                # visualiser.print_colored_matrix(self.error_ver_weights, [bad_interacted_items, interacted_items], is_vec=1,
-                #                                 all_positive=1, digits_after_point=2)
-                # visualiser.print_colored_matrix(self.error_vec_weights_for_uninter, [bad_interacted_items, interacted_items], is_vec=1,
-                #                                 all_positive=1, digits_after_point=2)
-                # visualiser.print_colored_matrix(self.common_item_vec, [bad_interacted_items, interacted_items], is_vec=1,
-                #                                 all_positive=1, digits_after_point=2)
-                visualiser.print_colored_matrix(error_per_item._value, [bad_interacted_items, interacted_items], is_vec=1,
-                                                all_positive=1, digits_after_point=2)
-                print("cost_for_user", cost_for_user._value, "\n")
+            # if user == 0:
+            #     print("user:", user)
+            #     visualiser.print_colored_matrix(expected_probs, [bad_interacted_items, interacted_items], is_vec=1,
+            #                                     all_positive=1, digits_after_point=2)
+            #     visualiser.print_colored_matrix(probs._value, [bad_interacted_items, interacted_items], is_vec=1,
+            #                                     all_positive=1, digits_after_point=2)
+            #     # visualiser.print_colored_matrix(self.error_ver_weights, [bad_interacted_items, interacted_items], is_vec=1,
+            #     #                                 all_positive=1, digits_after_point=2)
+            #     # visualiser.print_colored_matrix(self.error_vec_weights_for_uninter, [bad_interacted_items, interacted_items], is_vec=1,
+            #     #                                 all_positive=1, digits_after_point=2)
+            #     # visualiser.print_colored_matrix(self.common_item_vec, [bad_interacted_items, interacted_items], is_vec=1,
+            #     #                                 all_positive=1, digits_after_point=2)
+            #     visualiser.print_colored_matrix(error_per_item._value, [bad_interacted_items, interacted_items], is_vec=1,
+            #                                     all_positive=1, digits_after_point=2)
+            #     print("cost_for_user", cost_for_user._value, "\n")
 
         print("total_cost:", total_cost._value)
         print("------------------------------------","\n")
