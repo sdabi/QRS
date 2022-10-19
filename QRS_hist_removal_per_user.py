@@ -11,11 +11,13 @@ import visualiser
 
 n_item_wires = (int(math.log(defines._NUM_OF_ITEMS,2)))
 n_user_wires = 0
-n_wires = n_user_wires + n_item_wires
+n_garb_wires = 0
+n_wires = n_user_wires + n_item_wires + n_garb_wires
 
 item_wires = list(range(n_item_wires))
-user_wires = list(range(n_item_wires, n_wires))
-wires_list = item_wires + user_wires
+user_wires = list(range(n_item_wires, n_user_wires + n_item_wires))
+garb_wires = list(range(n_user_wires + n_item_wires, n_wires))
+wires_list = item_wires + user_wires + garb_wires
 
 weights_users = np.zeros((1, n_item_wires), requires_grad=False)
 
@@ -33,7 +35,7 @@ def QRS_hist_removal_per_user_circ(embedded_params, QRS_opt_params, params):
         BasicEntanglerLayers(weights_users, wires=item_wires) # entanglement
         for wire in item_wires:
             qml.Hadamard(wire)
-        StronglyEntanglingLayers(p, wires=item_wires)
+        StronglyEntanglingLayers(p, wires=wires_list)
 
     # Hist Removal
     StronglyEntanglingLayers(params, wires=wires_list)
@@ -41,7 +43,7 @@ def QRS_hist_removal_per_user_circ(embedded_params, QRS_opt_params, params):
 
 
 def randomize_init_params():
-    shape = StronglyEntanglingLayers.shape(n_layers=defines._NUM_OF_LAYERS, n_wires=n_wires)
+    shape = StronglyEntanglingLayers.shape(n_layers=5, n_wires=n_wires)
     return np.random.random(size=shape, requires_grad=True)
 
 
@@ -79,16 +81,10 @@ class QRS_hist_removal_per_user():
             # gertting the recommendations from QRS circ
             expected_probs = self.QRS_reco_matrix[user]
 
-            if user == 0:
-                print("expected before HR: ", expected_probs)
-
             # calc the expected probs for user
             expected_probs[interacted_items] = 0
             expected_probs[bad_interacted_items] = 0
             expected_probs = expected_probs/sum(expected_probs)
-
-            if user == 0:
-                print("expected after HR: ", expected_probs)
 
             expected_probs_vecs.append(expected_probs)
 
@@ -98,14 +94,10 @@ class QRS_hist_removal_per_user():
         for user in list(range(defines._NUM_OF_USERS)):
             opt_item_item = qml.AdamOptimizer(stepsize=0.1, beta1=0.5, beta2=0.599, eps=1e-08)
             start_time_train = time.time()
-            print("\n------- TRAINING PER USER QRS HIST REMOVAL:", user, "-------")
+            print("\n------- TRAINING QRS HIST REMOVAL user:", user, "-------")
             for i in range(self.train_steps):
-
-                if i % 10 == 0:
-                    print("training step:", i)
                 self.params_per_user[user] = opt_item_item.step(lambda v: self.total_cost_embedded_QRS(v, user), self.params_per_user[user])
 
-            print("--- embedding train took %s seconds ---" % math.ceil(time.time() - start_time_train))
         visualiser.plot_cost_arrs(self.error_per_user)
 
 
@@ -134,17 +126,17 @@ class QRS_hist_removal_per_user():
         self.error_per_user[user].append(cost_for_user._value)
 
         # DEBUG:
-        if user == 0:
-            print("user:", user)
-            visualiser.print_colored_matrix(expected_probs, [bad_interacted_items, interacted_items], is_vec=1,
-                                            all_positive=1, digits_after_point=2)
-            visualiser.print_colored_matrix(probs._value, [bad_interacted_items, interacted_items], is_vec=1,
-                                            all_positive=1, digits_after_point=2)
-            visualiser.print_colored_matrix(error_per_item._value, [bad_interacted_items, interacted_items], is_vec=1,
-                                            all_positive=1, digits_after_point=2)
-
-        print("total_cost:", cost_for_user._value)
-        print("------------------------------------","\n")
+        # if user == 0:
+        #     print("user:", user)
+        #     visualiser.print_colored_matrix(expected_probs, [bad_interacted_items, interacted_items], is_vec=1,
+        #                                     all_positive=1, digits_after_point=2)
+        #     visualiser.print_colored_matrix(probs._value, [bad_interacted_items, interacted_items], is_vec=1,
+        #                                     all_positive=1, digits_after_point=2)
+        #     visualiser.print_colored_matrix(error_per_item._value, [bad_interacted_items, interacted_items], is_vec=1,
+        #                                     all_positive=1, digits_after_point=2)
+        #
+        # print("total_cost:", cost_for_user._value)
+        # print("------------------------------------","\n")
         return cost_for_user
 
 

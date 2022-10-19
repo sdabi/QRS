@@ -34,7 +34,7 @@ class BinaryMF:
     def train(self):
         for epoch in range(self.n_epoch):
             self.grad_update()
-            if (epoch % 250 == 0):
+            if (epoch % 500 == 0):
                 print("Iteration:", epoch, "; error:", self.current_loss.numpy())
 
     # The implementation is far from optimized since we don't need the product of entire P'Q.

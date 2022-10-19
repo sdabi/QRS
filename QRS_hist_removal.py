@@ -23,7 +23,7 @@ weights_users = np.zeros((1, n_item_wires), requires_grad=False)
 # wrap device in qml.qnode
 dev_embedded_ItemItem_reco = qml.device('default.qubit', wires=n_wires)
 @qml.qnode(dev_embedded_ItemItem_reco)
-def QRS_hist_removal_circ(embedded_params, QRS_opt_params, user_id, params):
+def QRS_hist_removal_circ(embedded_params, QRS_opt_params, params):
     # QRS
     for p in QRS_opt_params:
         p = np.array([p])
@@ -137,7 +137,7 @@ class QRS_hist_removal():
             embedded_vec_for_user = self.user_embedded_vecs[user]
 
             # running the circuit
-            probs = QRS_hist_removal_circ(embedded_vec_for_user, self.QRS_opt_params, user, params)
+            probs = QRS_hist_removal_circ(embedded_vec_for_user, self.QRS_opt_params, params)
 
             expected_probs = self.expected_probs_vecs[user]
             error_per_item = (expected_probs - probs)**2
@@ -177,11 +177,11 @@ class QRS_hist_removal():
 
 
     def get_recommendation(self, user, uninteracted_items, removed_movie):
-        # get the probs vector for user
+
         embedded_vec_for_user = self.user_embedded_vecs[user]
-        # A = self.create_uninteracted_hermitian_mat(user)
-        # user_rot = ((2 * math.pi) / (defines._NUM_OF_USERS)) * user
-        probs = QRS_hist_removal_circ(embedded_vec_for_user, self.QRS_opt_params, user, self.params)
+
+        # get the probs vector for user
+        probs = QRS_hist_removal_circ(embedded_vec_for_user, self.QRS_opt_params, self.params)
 
         # DEBUG
         print("recommendation for user after hist removal:", user)

@@ -9,13 +9,14 @@ class Data_Handler():
     def __init__(self, random_data):
         if random_data == 0:
             self.orig_rating_df = pd.read_csv("ratings.csv")
+            print("done reading file")
             self.rating_df = self.orig_rating_df.copy()
             self.rating_df.loc[:,"rating"] = 1
             self.user_ids_list = np.sort(self.rating_df["userId"].unique().tolist())
             self.movie_ids_list = np.sort(self.rating_df["movieId"].unique().tolist())
 
         else:
-            rig = random_interactions_data_generator(int((defines._NUM_OF_USERS*defines._NUM_OF_ITEMS)/10), int((defines._NUM_OF_USERS*defines._NUM_OF_ITEMS)/10))
+            rig = random_interactions_data_generator(int((defines._NUM_OF_USERS*defines._NUM_OF_ITEMS)/10), int((defines._NUM_OF_USERS*defines._NUM_OF_ITEMS)/20))
             self.rating_df = rig.get_rating_df()
             self.user_ids_list = list(range(defines._NUM_OF_USERS))
             self.movie_ids_list = list(range(defines._NUM_OF_ITEMS))
@@ -49,6 +50,7 @@ class Data_Handler():
         removed_movies = []
         for user_id in (self.rating_df["userId"].unique().tolist()):
             removed_movies.append(self.remove_last_interaction_for_user(user_id))
+        print("done removing latest interactions")
         return removed_movies
 
 
@@ -80,6 +82,7 @@ class Data_Handler():
     def add_bad_sample_for_every_user(self):
         for user_id in (self.rating_df["userId"].unique().tolist()):
             self.bad_sample_to_user(user_id)
+        print("done adding bad interactions")
 
     # convert rating_df into interaction matrix - columns = items | rows = users
     # input: none
@@ -103,6 +106,7 @@ class Data_Handler():
         R_df = R_df.astype(int)
         R_df = R_df.reset_index(drop=True)
         R_df.columns = list(range(len(R_df.columns)))
+        print("done creating R_df")
         return R_df
 
     # return the movieId index in the interaction table
