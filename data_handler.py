@@ -43,13 +43,25 @@ class Data_Handler():
             (self.rating_df.userId == user_id) & (self.rating_df.timestamp == latest_inter_time), 'movieId'].values[0]
         return (user_id, movieId_removed)
 
+    # input: user id - to whom any of his interaction will be marked as _REMOVED_INTER
+    # output: movieId_removed - the movieId that removed for this user
+    def remove_interaction_for_user(self, user_id):
+        inter_items = self.rating_df[(self.rating_df.userId == user_id) & (self.rating_df.rating == 1)]['movieId']
+        movieId_removed = np.random.choice(inter_items, replace=False, size=1)[0]
+        self.rating_df.loc[(self.rating_df.userId == user_id) & (
+                self.rating_df.movieId == movieId_removed), 'rating'] = defines._REMOVED_INTER
+        return (user_id, movieId_removed)
+
+
+
     # remove the last interaction for every user
     # input: none
     # output: list of the removed movieIds (movieId in i'th pos - removed from i'th user)
     def remove_last_interaction_for_every_user(self):
         removed_movies = []
         for user_id in (self.rating_df["userId"].unique().tolist()):
-            removed_movies.append(self.remove_last_interaction_for_user(user_id))
+            #removed_movies.append(self.remove_last_interaction_for_user(user_id))
+            removed_movies.append(self.remove_interaction_for_user(user_id))
         print("done removing latest interactions")
         return removed_movies
 
