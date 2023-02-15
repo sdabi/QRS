@@ -52,7 +52,8 @@ class MF():
             total_error = self.sgd()
             training_process.append(total_error)
             if (i + 1) % 10 == 0:
-                print("Iteration: %d ; error = %.4f" % (i + 1, total_error))
+                print("Iteration: %d ; error = %.4f" % (i + 1, total_error), end='\r')
+        print("")
         print("training Done")
         return training_process
 
