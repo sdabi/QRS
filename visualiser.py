@@ -8,16 +8,18 @@ RED = (200, 50, 50)
 GREEN = (0, 200, 100)
 BLUE = (35, 100, 255)
 GRAY = (150, 150, 150)
+ORANGE = (255, 165, 30)
 BLACK = (0, 0, 0)
 
 def bold(text):
     return "\033[1m{}\033[0m".format(text)
 
+def underline(text):
+    return "\033[4m{}\033[0m".format(text)
+
 def colored(color, text):
     return "\033[38;2;{};{};{}m{}\033[0m".format(color[0], color[1], color[2], bold(text))
 
-def underline(text):
-    return "\033[4m{}\033[0m".format(text)
 
 
 
@@ -83,6 +85,11 @@ def print_colored_matrix(mat, colored_values=[], is_vec=0, all_positive=0, digit
     # print("")  # new line
     # print(colored(GRAY, '{val:>{space_for_print}}'.format(val=r, space_for_print=3)), colored(GRAY, "|"), end="")
 
+    # code which mark the higest prop in the vec
+    if is_vec == 1:
+        colored_values.append([])
+        colored_values[3].append(np.argmax(np.array(mat)))
+
     for index_in_mat, val in np.ndenumerate(mat):
         print_in_black = 1
         if is_vec == 0 and r < index_in_mat[0]:
@@ -97,13 +104,16 @@ def print_colored_matrix(mat, colored_values=[], is_vec=0, all_positive=0, digit
                 # print("B", index_in_mat, index, color_list)
                 print_in_black = 0
                 if index == 0:
-                    print(colored(RED, '{val:>{space_for_print}}'.format(val=val, space_for_print=space_for_print)), end="") #RED
+                    print(colored(RED, '{val:>{space_for_print}}'.format(val=val, space_for_print=space_for_print)), end="")
                     break
                 if index == 1:
-                    print(colored(GREEN, '{val:>{space_for_print}}'.format(val=val, space_for_print=space_for_print)), end="") # GREEN
+                    print(colored(GREEN, '{val:>{space_for_print}}'.format(val=val, space_for_print=space_for_print)), end="")
                     break
                 if index == 2:
-                    print(colored(BLUE, '{val:>{space_for_print}}'.format(val=val, space_for_print=space_for_print)), end="") #BLUE
+                    print(colored(BLUE, '{val:>{space_for_print}}'.format(val=val, space_for_print=space_for_print)), end="")
+                    break
+                if index == 3:
+                    print(colored(ORANGE, '{val:>{space_for_print}}'.format(val=val, space_for_print=space_for_print)), end="")
                     break
         if print_in_black:
             print( '{val:>{space_for_print}}'.format(val=val, space_for_print=space_for_print), end="")
