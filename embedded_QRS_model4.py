@@ -1,3 +1,5 @@
+import random
+
 import pennylane as qml
 from pennylane.templates.layers import StronglyEntanglingLayers
 from pennylane import numpy as np
@@ -54,7 +56,7 @@ def embedded_QRS_circ_reco_without_groups(params, user_params):
 # ============================ WITH GROUPS ===================================
 dev_embedded_ItemItem_reco = qml.device('default.qubit', wires=n_wires)
 @qml.qnode(dev_embedded_ItemItem_reco)
-def embedded_QRS_circ_reco(params, group_params, user_params):
+def embedded_QRS_circ_reco_with_groups(params, group_params, user_params):
     for wire in item_wires:
         qml.Hadamard(wire)
 
@@ -78,7 +80,7 @@ def embedded_QRS_circ_reco(params, group_params, user_params):
 weights_users = np.zeros((1, n_item_wires), requires_grad=False)
 dev_embedded_ItemItem_reco = qml.device('default.qubit', wires=n_wires)
 @qml.qnode(dev_embedded_ItemItem_reco)
-def embedded_QRS_circ_reco(params, group_params, user_params, embedded_params):
+def embedded_QRS_circ_reco_with_groups_with_embedded(params, group_params, user_params, embedded_params):
     for wire in item_wires:
         qml.Hadamard(wire)
 
@@ -86,18 +88,23 @@ def embedded_QRS_circ_reco(params, group_params, user_params, embedded_params):
         p = np.array([p])
         StronglyEntanglingLayers(p, wires=item_wires)
 
-
-    for wire in item_wires:
-        qml.Hadamard(wire)
+    AngleEmbedding(embedded_params, wires=item_wires, rotation='X')
+    AngleEmbedding(embedded_params, wires=item_wires, rotation='Y')
     AngleEmbedding(embedded_params, wires=item_wires, rotation='Z')
-    BasicEntanglerLayers(weights_users, wires=item_wires)
-    for wire in item_wires:
-        qml.Hadamard(wire)
-
+    # for p in embedded_params:
+    #     p = np.array([p])
+    #     StronglyEntanglingLayers(p, wires=item_wires)
+    # BasicEntanglerLayers(weights_users, wires=item_wires)
+    # for wire in item_wires:
+    #     qml.Hadamard(wire)
 
     for p in group_params:
         p = np.array([p])
         StronglyEntanglingLayers(p, wires=item_wires)
+    #AngleEmbedding(group_params, wires=item_wires, rotation='Z')
+    # for p in group_params:
+    #     p = np.array([p])
+    #     StronglyEntanglingLayers(p, wires=item_wires)
 
     for p in params:
         p = np.array([p])
@@ -110,7 +117,7 @@ def embedded_QRS_circ_reco(params, group_params, user_params, embedded_params):
 # ============================ WITH GROUPS + HIST REMOVAL===================================
 dev_embedded_ItemItem_reco = qml.device('default.qubit', wires=n_wires)
 @qml.qnode(dev_embedded_ItemItem_reco)
-def embedded_QRS_circ_reco_hist_removal(params, group_params, user_params, hist_removal_params):
+def embedded_QRS_circ_reco_hist_removal(params, group_params, user_params, embedded_params, hist_removal_params):
     for wire in item_wires:
         qml.Hadamard(wire)
 
@@ -133,9 +140,7 @@ def embedded_QRS_circ_reco_hist_removal(params, group_params, user_params, hist_
     return qml.probs(wires=item_wires)
 
 
-
-
-
+# noinspection PyRedundantParentheses
 class embedded_QRS_model4():
     def __init__(self, R, train_steps, train_sets, layers, n_groups, user_embedding_vec):
         self.R = R
@@ -150,19 +155,29 @@ class embedded_QRS_model4():
         self.user_embedding_vec = self.normalize_embdded_vecotrs(user_embedding_vec)
 
         self.params = self.randomize_init_params_QRS(layers)
-        self.user_params = {}
+
         self.best_group_for_user = {}
+        self.user_params = {}
         for user in range(defines._NUM_OF_USERS):
-            self.user_params[user] = self.randomize_init_params_QRS(5)
+            self.user_params[user] = self.randomize_init_params_QRS(1)
             self.best_group_for_user[user] = 0
+
+
+        #self.group_params = self.find_best_initial_group_ves(n_groups)
+
 
         self.group_params = {}
         for group in range(n_groups):
-            self.group_params[group] = self.randomize_init_params_QRS(1)
+           self.group_params[group] = self.randomize_init_params_QRS(1)
 
         self.hist_removal_params = {}
         for user in range(defines._NUM_OF_USERS):
             self.hist_removal_params[user] = self.randomize_init_params_QRS(5)
+
+        print(self.user_embedding_vec)
+        #self.user_embedding_vec = self.conv_normalize_embdded_vecotrs_3d(self.user_embedding_vec)
+        #print(self.user_embedding_vec)
+        #print(self.user_embedding_vec[0])
 
 
         self.total_cost = []
@@ -172,7 +187,11 @@ class embedded_QRS_model4():
 
         self.recommend_phase = 0
 
-#================================================= WITHOUT GROUPS FUNCTIONS ============================================
+
+
+    def __________WITHOUT_GROUPS___________(self):
+        return 1
+
     # ----------------------------------------------------- TRAIN ------------------------------------------------------
     def train_without_groups(self):
         opt_item_item = qml.AdamOptimizer(stepsize=0.1, beta1=0.5, beta2=0.599, eps=1e-08)
@@ -187,7 +206,7 @@ class embedded_QRS_model4():
                 print("Training by user: ", user, end='\r')
                 user_params = self.user_params[user]
                 user_params.requires_grad = True
-                for t_step in range(10):
+                for t_step in range(1):
                     params, user_params = opt_item_item.step(
                         lambda x, y: self.total_cost_embedded_QRS_without_groups(user, x, y), params, user_params)
                 self.user_params[user] = user_params.copy()
@@ -197,7 +216,7 @@ class embedded_QRS_model4():
             params = self.params.copy()
             params.requires_grad = True
             print("Training by all users")
-            for t_step in range(5):
+            for t_step in range(30):
                 for user in range(defines._NUM_OF_USERS):
                     user_params = self.user_params[user]
                     user_params.requires_grad = False
@@ -231,27 +250,149 @@ class embedded_QRS_model4():
         self.total_cost.append(total_cost._value)
         return total_cost
 
-# ================================================= WITH GROUPS FUNCTIONS ============================================
+
+
+
+
+    def __________WITH_GROUPS___________(self):
+        return 1
+
+    # ----------------------------------------------------- TRAIN ------------------------------------------------------
+    def train_with_groups(self):
+        opt_item_item = qml.AdamOptimizer(stepsize=0.1, beta1=0.5, beta2=0.599, eps=1e-08)
+        print("\n------- TRAINING EMBEDDED ITEM RECOMMENDATION SYS -------")
+        for t_set in range(self.train_sets):
+            self.total_cost.append(0)
+            print("-- TRAINING SET:", t_set, "--")
+
+            _ = self.update_best_group_for_user_dic()
+            print("users groups", self.best_group_for_user)
+
+            # -------------------------- updating user params -----------------------
+            params = self.params.copy()
+            params.requires_grad = False
+            for user in range(defines._NUM_OF_USERS):
+                print("Training by user: ", user)
+                group_params = self.group_params[self.best_group_for_user[user]]
+                group_params.requires_grad = False
+                user_params = self.user_params[user]
+                user_params.requires_grad = True
+                print("user_params", user_params)
+                for t_step in range(2):
+                    params, group_params, user_params = opt_item_item.step(
+                        lambda x, y, z: self.total_cost_embedded_QRS_with_groups(user, x, y, z), params, group_params, user_params)
+                self.user_params[user] = user_params.copy()
+            print("")
+
+
+            # -------------------------- updating group params -----------------------
+            for t_step in range(3):
+                for user in range(defines._NUM_OF_USERS):
+                    print("Training Group by user: ", user, end='\r')
+                    group_params = self.group_params[self.best_group_for_user[user]]
+                    group_params.requires_grad = True
+                    user_params = self.user_params[user]
+                    user_params.requires_grad = False
+                    for t_step in range(3):
+                        params, group_params, user_params = opt_item_item.step(
+                            lambda x, y, z: self.total_cost_embedded_QRS_with_groups(user, x, y, z), params, group_params, user_params)
+                    self.group_params[self.best_group_for_user[user]] = group_params.copy()
+                    # if user == 15:
+                    #     print("user: 15 best group", self.best_group_for_user[user],"params are:", self.group_params[self.best_group_for_user[user]])
+
+                print("")
+
+            # print("DEBUG:")
+            # params = self.params.copy()
+            # params.requires_grad = False
+            # group_params = self.group_params[self.best_group_for_user[0]]
+            # group_params.requires_grad = False
+            # user_params = self.user_params[0]
+            # user_params.requires_grad = False
+            # self.total_cost_embedded_QRS_with_groups(0, params, group_params, user_params)
+            # print("END DEBUG")
+
+            # -------------------------- updating global params -----------------------
+            print("Training by all users")
+            for t_step in range(5):
+                params = self.params.copy()
+                params.requires_grad = True
+                for user in range(defines._NUM_OF_USERS):
+                    for t_step2 in range(5):
+                        group_params = self.group_params[self.best_group_for_user[user]]
+                        group_params.requires_grad = False
+                        user_params = self.user_params[user]
+                        user_params.requires_grad = False
+                        params, group_params, user_params = opt_item_item.step(
+                            lambda x, y, z: self.total_cost_embedded_QRS_with_groups(user, x, y, z), params, group_params, user_params)
+                self.params = params.copy()
+
+
+            # # -------------------------- updating user params -----------------------
+            # params = self.params.copy()
+            # params.requires_grad = False
+            # for user in range(defines._NUM_OF_USERS):
+            #     print("Training by user: ", user, end='\r')
+            #     group_params = self.group_params[self.best_group_for_user[user]]
+            #     group_params.requires_grad = False
+            #     user_params = self.user_params[user]
+            #     user_params.requires_grad = True
+            #     for t_step in range(2):
+            #         params, group_params, user_params = opt_item_item.step(
+            #             lambda x, y, z: self.total_cost_embedded_QRS_with_groups(user, x, y, z), params, group_params, user_params)
+            #     self.user_params[user] = user_params.copy()
+            # print("")
+
+
+            print("---- DONE SET", t_set, "----\n")
+
+        visualiser.plot_cost_arrs([self.total_cost])
+        visualiser.plot_cost_arrs(self.error_per_user)
+
+    # ----------------------------------------------------- COST -------------------------------------------------------
+    def total_cost_embedded_QRS_with_groups(self, user, params, group_params, user_params):
+
+        # running the circuit
+        probs = embedded_QRS_circ_reco_with_groups(params, group_params, user_params)
+
+        # calc the error for the user
+        cost_for_user = sum((self.expected_probs_vecs[user] - probs) ** 2)
+
+        if (user ==0):
+            print(probs)
+        self.error_per_user[user].append(cost_for_user._value)
+        self.total_cost[-1] += cost_for_user._value
+        return cost_for_user
+
+
+
+
+
+
+    def __________WITH_GROUPS_WITH_EMBEDDED___________(self):
+        return 1
 
     def train(self):
         self.recommend_phase = 1  # recommend with grouping
         opt_item_item = qml.AdamOptimizer(stepsize=0.1, beta1=0.5, beta2=0.599, eps=1e-08)
         print("\n------- TRAINING EMBEDDED ITEM RECOMMENDATION SYS -------")
 
-        _ = self.update_best_group_for_user_dic()
-        print("users groups", self.best_group_for_user)
+        params = self.params.copy()
+        params.requires_grad = False
 
-        for t_set in range(10):
+        for t_set in range(20):
+            if (t_set < 10):
+                _ = self.update_best_group_for_user_dic()
+                print("users groups", self.best_group_for_user)
+
             # -------------------------- updating group params -----------------------
-            params = self.params.copy()
-            params.requires_grad = False
             for user in range(defines._NUM_OF_USERS):
                 print("Training Group by user: ", user, end='\r')
                 group_params = self.group_params[self.best_group_for_user[user]]
                 group_params.requires_grad = True
                 user_params = self.user_params[user]
                 user_params.requires_grad = False
-                for t_step in range(5):
+                for t_step in range(2):
                     params, group_params, user_params = opt_item_item.step(
                         lambda x, y, z: self.total_cost_embedded_QRS(user, x, y, z), params, group_params, user_params)
                 self.group_params[self.best_group_for_user[user]] = group_params.copy()
@@ -281,9 +422,10 @@ class embedded_QRS_model4():
     # ----------------------------------------------------- COST -------------------------------------------------------
     def total_cost_embedded_QRS(self, user, params, group_params, user_params):
         total_cost = 0
+        embedded_params = self.user_embedding_vec[user]
 
         # running the circuit
-        probs = embedded_QRS_circ_reco(params, group_params, user_params)
+        probs = embedded_QRS_circ_reco_with_groups_with_embedded(params, group_params, user_params, embedded_params)
         # getting expected probs for user
         expected_probs = self.expected_probs_vecs[user]
 
@@ -300,50 +442,20 @@ class embedded_QRS_model4():
 
 
 
-    def destroy_user_params(self):
-
-
-
-
-        orig_user_params = self.user_params.copy()
-        opt_destructed_user_params = self.user_params.copy()
-
-        max_diff_between_groups_sizes_opt = self.update_best_group_for_user_dic()
-        print("here the diff need to be", defines._NUM_OF_USERS, "diff is:", max_diff_between_groups_sizes_opt)
-
-        for iter in range(5):
-            self.user_params = orig_user_params.copy()
-            #destruction_vec = self.randomize_init_params_QRS(1)
-            shape = StronglyEntanglingLayers.shape(n_layers=1, n_wires=n_item_wires)
-            destruction_vec = np.ones(shape=shape, requires_grad=False)*(1+(iter+1)*0.1)
-
-            for user in range(defines._NUM_OF_USERS):
-                self.user_params[user] *= destruction_vec
-            max_diff_between_groups_sizes = self.update_best_group_for_user_dic()
-            if (max_diff_between_groups_sizes < max_diff_between_groups_sizes_opt):
-                max_diff_between_groups_sizes_opt = max_diff_between_groups_sizes
-                opt_destructed_user_params = self.user_params.copy()
-                print("new opt diff is:", max_diff_between_groups_sizes_opt)
-                if max_diff_between_groups_sizes == 0: break
-
-        self.user_params = opt_destructed_user_params.copy()
-
-
-
     def get_recommendation(self, user, uninteracted_items, removed_movie):
         # get the probs vector for user
 
         user_params = self.user_params[user]
         group_params = self.group_params[self.best_group_for_user[user]]
         hist_removal_params = self.hist_removal_params[user]
-
+        embedded_params = self.user_embedding_vec[user]
 
         if self.recommend_phase == 0:
-            probs = embedded_QRS_circ_reco_without_groups(self.params, user_params)
+            probs = embedded_QRS_circ_reco_with_groups(self.params, group_params, user_params)
         elif self.recommend_phase == 1:
-            probs = embedded_QRS_circ_reco(self.params, group_params, user_params)
+            probs = embedded_QRS_circ_reco_with_groups_with_embedded(self.params, group_params, user_params, embedded_params)
         else:
-            probs = embedded_QRS_circ_reco_hist_removal(self.params, group_params, user_params, hist_removal_params)
+            probs = embedded_QRS_circ_reco_hist_removal(self.params, group_params, user_params, embedded_params, hist_removal_params)
         # DEBUG
         print("recommendation for user wo hist removal:", user)
         interacted_items = self.interacted_items_matrix[user]
@@ -358,15 +470,17 @@ class embedded_QRS_model4():
         best_group = 0
         user_params = self.user_params[user]
         expected_probs = self.expected_probs_vecs[user]
+        embedded_params = self.user_embedding_vec[user]
         for group, group_params in self.group_params.items():
-            probs = embedded_QRS_circ_reco(self.params, group_params, user_params)
-            error_per_item = (expected_probs - probs) ** 2
-            total_error = sum(error_per_item)
+            probs = embedded_QRS_circ_reco_with_groups(self.params, group_params, user_params)
+            total_error = sum((expected_probs - probs) ** 2)
             if total_error < min_error:
                 min_error = total_error
                 best_group = group
         return best_group
 
+    # for evey user - find the best group that fit him
+    # return: max diff between groups sizes
     def update_best_group_for_user_dic(self):
         num_of_user_per_groups = np.zeros(len(self.group_params))
         for user in range(defines._NUM_OF_USERS):
@@ -378,14 +492,14 @@ class embedded_QRS_model4():
         return max(num_of_user_per_groups) - min(num_of_user_per_groups)
 
 
-    def get_QRS_reco_matrix(self):
-        QRS_reco_matrix = []
-        for user in range(defines._NUM_OF_USERS):
-            user_params = self.user_params[user]
-            group_params = self.group_params[self.best_group_for_user[user]]
-            probs = embedded_QRS_circ_reco(self.params, group_params, user_params)
-            QRS_reco_matrix.append(probs)
-        return QRS_reco_matrix
+    # def get_QRS_reco_matrix(self):
+    #     QRS_reco_matrix = []
+    #     for user in range(defines._NUM_OF_USERS):
+    #         user_params = self.user_params[user]
+    #         group_params = self.group_params[self.best_group_for_user[user]]
+    #         probs = embedded_QRS_circ_reco(self.params, group_params, user_params)
+    #         QRS_reco_matrix.append(probs)
+    #     return QRS_reco_matrix
 
     # plotting the embedded quantum states:
     def present_embedding(self):
@@ -394,6 +508,11 @@ class embedded_QRS_model4():
             user_params = self.user_params[user]
             probs = embedded_QRS_circ_embedding(user_params)
             embedded_state.append(probs)
+
+        for group, group_params in self.group_params.items():
+            probs = embedded_QRS_circ_embedding(group_params)
+            embedded_state.append(probs)
+
         visualiser.plot_embedded_vecs(embedded_state)
 
     def get_embedding_vecs(self):
@@ -464,11 +583,83 @@ class embedded_QRS_model4():
         vecs /= global_max  # max in all data is 1
 
         vecs *= (2*math.pi/defines._EMBEDDING_SIZE)       # sum of each row is up to pi
+        return vecs
 
+    def conv_normalize_embdded_vecotrs_3d(self, vecs):
+        conv_norm_vecs = {}
+        for i, v in enumerate(vecs):
+            v3d = np.array([v, v, v])
+            v3d_T = v3d.T
+            conv_norm_vecs[i] = np.array([v3d_T], requires_grad=False)
+        return conv_norm_vecs
+
+
+    # creating nof_groups initial vectors - which suppose to split the users to seperated groups
+    def find_best_initial_group_ves(self, nof_groups):
+        closest_group_vec_to_each_vec = np.zeros(nof_groups, requires_grad=False)
+        group_vecs = np.zeros((nof_groups, len(self.user_embedding_vec[0])), requires_grad=False)
+        # finding the most nof_groups farest vectors
+        farest_vecs = self.find_farest_vecs_from_list(nof_groups, self.user_embedding_vec, 100)
+        for user in range(defines._NUM_OF_USERS):
+            v = self.user_embedding_vec[user]
+            # for everry user finding the closest vecs within the farest which were chosen
+            closest_vec_ind = self.find_closest_vec_to_vec(v, farest_vecs)
+            print("user:", user, "closest vec:", closest_vec_ind)
+            group_vecs[closest_vec_ind] -= v
+            closest_group_vec_to_each_vec[closest_vec_ind] += 1
+
+        for i in range(nof_groups):
+            group_vecs[i] /= closest_group_vec_to_each_vec[i]
+
+        group_vecs = self.conv_normalize_embdded_vecotrs_3d(group_vecs)
+
+        return group_vecs
+
+
+
+    # from a list of vecs (vecs_list) - choosing nof_vecs_to_sample with the largest distance
+    def find_farest_vecs_from_list(self, nof_vecs_to_sample, vecs_list, iterations):
+        best_total_dist = 0
+        best_sampled_vecs = []
+        for iter in range(iterations):
+            total_dist = 0
+            sampled_vecs = random.sample(list(vecs_list), nof_vecs_to_sample)
+            for i in range(nof_vecs_to_sample):
+                for j in range(i+1, nof_vecs_to_sample):
+                    total_dist += math.sqrt(sum((sampled_vecs[i] - sampled_vecs[j])**2))
+            if (total_dist > best_total_dist):
+                best_total_dist = total_dist
+                best_sampled_vecs = sampled_vecs.copy()
+
+        print("best total dist:", best_total_dist, "vecs:", best_sampled_vecs)
+        dic_best_sampled_vecs = {i:np.array(v) for i,v in enumerate(best_sampled_vecs)}
+        return dic_best_sampled_vecs
+
+
+    # choosing from list of vecs (vecs) the closest vector index to input vec (vec)
+    def find_closest_vec_to_vec(self, vec, vecs):
+        closest_vec_ind = 0
+        closest_dist = 100000000
+        for i,v in enumerate(vecs):
+            dist = math.sqrt(sum((vec - v)**2))
+            if (dist < closest_dist):
+                closest_vec_ind = i
+                closest_dist = dist
+        return closest_vec_ind
 
 
     def __________HIST_REMOVAL___________(self):
         return 1
+
+
+    def get_QRS_reco_matrix(self):
+        QRS_reco_matrix = []
+        for user in range(defines._NUM_OF_USERS):
+            user_params = self.user_params[user]
+            group_params = self.group_params[self.best_group_for_user[user]]
+            probs = embedded_QRS_circ_reco_with_groups(self.params, group_params, user_params)
+            QRS_reco_matrix.append(probs)
+        return QRS_reco_matrix
 
 
     # calculating the expected probs for evey user
@@ -507,20 +698,21 @@ class embedded_QRS_model4():
             hist_removal_params = self.hist_removal_params[user].copy()
             hist_removal_params.requires_grad = True
             for i in range(self.train_steps):
-                hist_removal_params = opt_item_item.step(lambda v: self.total_cost_embedded_QRS_hist_removal(v, user),
+                hist_removal_params = opt_item_item.step(lambda v: self.total_cost_embedded_QRS_hist_removal(user, v),
                                                          hist_removal_params)
             self.hist_removal_params[user] = hist_removal_params.copy()
 
         print("")
-        self.recommend_phase = 1
+        self.recommend_phase = 2
         visualiser.plot_cost_arrs(self.error_per_user)
 
 
-    def total_cost_embedded_QRS_hist_removal(self, params, user):
+    def total_cost_embedded_QRS_hist_removal(self, user, hist_params):
         # running the circuit
         user_params = self.user_params[user]
         group_params = self.group_params[self.best_group_for_user[user]]
-        probs = embedded_QRS_circ_reco_hist_removal(self.params, group_params, user_params, params)
+        embedded_params = self.user_embedding_vec[user]
+        probs = embedded_QRS_circ_reco_hist_removal(self.params, group_params, user_params, embedded_params, hist_params)
 
         expected_probs = self.expected_probs_vecs_for_hist_removal[user]
         error_per_item = (expected_probs - probs)**2
